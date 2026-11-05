@@ -1,70 +1,66 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-
-public class SearchTargetState : State //Inhrerit from State class, which itself has instance of AI and StateMachine
-    //Neat trick: generate overrides quick from State 'interface' by rightclick -> gen override
-    //Add  constructor w this too
+/// <summary>
+/// L1 behaviour. The bot has a rough idea where the target is, or none at all.
+///
+/// Two sub-behaviours, chosen each frame:
+///   - a cone saw something: drop a marker there and go investigate
+///   - nothing at all: return to the centre of the arena, where the vision cones
+///     have no dead zones
+///
+/// These arguably want to be two separate states, but the bool split works.
+///
+/// The helper methods live on AI rather than here so their tuning values can be
+/// [SerializeField] - State classes are plain C# objects and cannot expose
+/// anything to the Inspector.
+/// </summary>
+public class SearchTargetState : State
 {
-    //Bool used to check between two substates 
-    //they may work better as a seperate state but too late!!
     private bool goCenter;
     private bool investigateMarker;
 
-    
-    //Its possible to create the methods used here instead of at AI (ie PlaceMarker(), GetMarker(), etc...).
-    //That would make the AI script look less bloated, but then you cant use Unitys Inspection system since these states arent connected to any component
     public SearchTargetState(AI ai, StateMachine stateMachine) : base(ai, stateMachine)
     {
-        //Investigation state where bot will move straight towards detected L1 sensors in order to find Target
-        //If L2 triggered, switch to FollowTargetState
-        //else, stay here
-        //Can also move to centre of Arena
     }
 
     public override void EnterState()
     {
         base.EnterState();
-        //ai.SetCurrentStateName("Search Target State: \n Limited tracking and reserved movement, can move to center if lose target entirely");
         ai.SetCurrentStateName(0);
-        //Debug.Log("Entered SearchTargetState");
+
+        // Fresh entry into the state means any previous approach is over.
+        goCenter = false;
+        investigateMarker = false;
     }
 
     public override void ExitState()
     {
         base.ExitState();
-        //Debug.Log("Exit SearchTargetState");
     }
 
-
-     
     public override void Update()
     {
         base.Update();
-        /*Base function
-         * Drops a marker in that cone and moves towards it
-         * only exits this move function when reach cone or target within L2s.
-        */
-            if (ai.IsL1() == true)
-            {
-                goCenter = false;
-                ai.PlaceMarker();
-               // investigateL1 = true;
-                investigateMarker = true;
 
-            }       
-            else if (ai.GetMarker() == false) // makes sure the bot isnt already investigating before going to center.
-            {
-            // outside of L1, move to center of arena to achieve full vision of arena
-                goCenter = true;
-                investigateMarker = false;
-            }
-           
-       
-        //Switch state to FollowTargetState
+        if (ai.IsL1() == true)
+        {
+            goCenter = false;
+            ai.PlaceMarker();
+            investigateMarker = true;
+        }
+        else if (ai.GetMarker() == false)   // not already investigating
+        {
+            // Lost the target entirely: head for the centre for full coverage.
+            // Only start the approach on the rising edge, so the turn phase is
+            // timed from when the manoeuvre actually begins rather than being
+            // restarted every frame.
+            if (goCenter == false) ai.BeginCenterApproach();
+
+            goCenter = true;
+            investigateMarker = false;
+        }
+
         if (ai.IsL2() == true)
         {
-            ai.SetMarker(false); //Make sure there are no markers left when it leaves this state
+            ai.SetMarker(false);   // no stale markers left behind
             ai.StateMachine.ChangeState(ai.FollowTargetState);
         }
         else if (ai.IsIdle() == true)
@@ -76,16 +72,15 @@ public class SearchTargetState : State //Inhrerit from State class, which itself
     public override void PhysicsUpdate()
     {
         base.PhysicsUpdate();
-      
+
         if (investigateMarker == true)
         {
             ai.InvestigateMarker();
         }
+
         if (goCenter == true)
         {
             ai.MoveToCenter();
         }
-
-
     }
 }

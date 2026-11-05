@@ -1,17 +1,14 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>Death explosion. Cleans itself up after its animation has played.</summary>
 public class Explosion : MonoBehaviour
 {
-    double time;
-    private void Update()
+    [Tooltip("Seconds before the explosion object destroys itself.")]
+    [SerializeField] float lifetime = 1f;
+
+    void Start()
     {
-        time += Time.deltaTime;
-        if (time >= 1)
-        {
-            Destroy(this.gameObject);
-            Debug.Log("tweak");
-        }
+        // Was a manual timer in Update that also logged on every destroy.
+        Destroy(this.gameObject, lifetime);
     }
 }

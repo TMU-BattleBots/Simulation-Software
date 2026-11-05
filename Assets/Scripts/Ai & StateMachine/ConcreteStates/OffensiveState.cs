@@ -26,8 +26,8 @@ public class OffensiveState : State //L3
     public override void Update()
     {
         base.Update();
-        //Base behavior of this state: Still locked on to target
-        ai.TrackingTarget();
+
+        // Tracking moved to PhysicsUpdate - see FollowTargetState.
 
         /*Match can reach "spin lock" behavior where both bots are spinning 
          * rapidly side by side trying to find an opening
@@ -70,6 +70,8 @@ public class OffensiveState : State //L3
     {
         base.PhysicsUpdate();
 
+        //Base behavior of this state: still locked on, at attack speed
+        ai.TrackingTarget();
         ai.MoveForward();
     }
 }

@@ -1,63 +1,19 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-
-public class AIHitBox : MonoBehaviour
+/// <summary>
+/// The AI bot's spinner hitbox.
+///
+/// All behaviour lives in BotHitBox. This class exists only so the AI Variant
+/// prefab's existing component reference (and every Inspector field wired into
+/// it) keeps working.
+///
+/// IMPORTANT - this is the biggest behavioural change in the bug-fix pass.
+/// This script used to apply knockback with ForceMode2D.Force where the player's
+/// used ForceMode2D.Impulse. Force spreads the push across one physics step,
+/// so combined with the old Time.deltaTime factor the AI's knockback was in the
+/// region of fifty times weaker than the player's. Both now use Impulse with the
+/// same defaults, which means AI hits shove much harder than they used to.
+/// Expect to retune - every constant is exposed on this component in the
+/// Inspector.
+/// </summary>
+public class AIHitBox : BotHitBox
 {
-    [SerializeField] CombatSystem enemyBot;
-    private CombatSystem playerBot;
-    
-    [SerializeField] CircleCollider2D enemyCol; //them
-
-    [SerializeField] Rigidbody2D enemyrb;
-    [SerializeField] Rigidbody2D playerrb;
-
-    [SerializeField] float force;
-    [SerializeField] float knockbackForce;
-    Vector2 direction;
-
-    int damage;
-
-    void Start()
-    {
-        playerBot = GetComponentInParent<CombatSystem>();
-    }
-    // Update is called once per frame
-    void FixedUpdate()
-    {
-        damage = playerBot.GetDamage(); //gets damage from our bot and dishes it to enemys hp.
-        SetKnockBacks(damage);
-    }
-
-    private void OnTriggerEnter2D(Collider2D collision) //for the
-    {
-
-        //enemyBot = collision.GetComponent<CombatSystem>(); 
-        if (collision.gameObject.tag == "Player")
-        {
-            Explosion();
-
-            enemyBot.DealDamage(damage);
-            playerBot.DecrementDamage();
-        }
-    }
-
-
-    void Explosion()
-    {
-        //Debug.Log("boom?");
-        direction = enemyCol.transform.position - transform.position;
-        enemyrb.AddForce(direction * force * Time.deltaTime, ForceMode2D.Force);
-        playerrb.AddForce(-direction * knockbackForce * Time.deltaTime, ForceMode2D.Force);
-
-    }
-
-    public void SetKnockBacks(float attforce) //scales the knockback force to damage.
-    {
-        force = attforce * (25000.0f / 40.0f) + 10000.0f;
-        // Ensure the transformed value is within the desired output range
-        force = Mathf.Clamp(force, 25000.0f, 40000.0f);
-        knockbackForce = force / 2 + 3000.0f;
-    }
-
 }

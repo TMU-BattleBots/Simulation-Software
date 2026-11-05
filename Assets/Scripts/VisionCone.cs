@@ -1,65 +1,86 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using Unity.VisualScripting;
-using UnityEditor;
 using UnityEngine;
 
+// NOTE: this file used to have "using UnityEditor;". That compiles in the Editor
+// but breaks a standalone player build ("The type or namespace name 'UnityEditor'
+// could not be found"), because the UnityEditor assembly is not shipped. Runtime
+// scripts must never reference it - if you need editor-only code, put it in a
+// folder called Editor, or wrap it in #if UNITY_EDITOR.
+
+/// <summary>
+/// Collects the detection state of all the child vision cones for one bot.
+///
+/// HOW TO ADD A CONE
+///   1. Duplicate an existing cone child and edit its PolygonCollider2D
+///   2. Attach ChildCone and give it a unique, contiguous coneID
+///   3. Add a bool to coneState below AND grow the serialised array on the prefab
+///   4. Update the IsL1/IsL2/IsL3/IsL4 index ranges in AI.cs
+///   5. Grow the Cone Name ID array on the UI component
+///
+/// HOW IT WORKS
+///   Each child cone polls its own collider against Target and reports up here.
+///   This script just holds the resulting array.
+///
+/// KNOWN LIMITATION
+///   Detection is collider overlap, not line of sight - ChildCone calls
+///   IsTouching, which knows nothing about walls, so the bot can see the target
+///   through arena geometry. Fixing that means a Physics2D.Raycast occlusion
+///   check before accepting a hit.
+/// </summary>
 public class VisionCone : MonoBehaviour
 {
     [SerializeField] Rigidbody2D rb;
 
-    //having trouble keeping up with detection when theres fast movement, 
-    //might be due to having only 1 int to update 9 different states
-    //maybe splitting it up will help
-    //ok didnt rlly work or idk how to figure it out
-    //need to find a better way to manage states
-    //update: bunch of if states on an array :(
-    //breakthrough while rethinking things.
-
-
-    
-    //HOW I MADE THE VISION CONES
-    //1. Create child object with polygoncollider
-    //2. Attach ChildCone script and assign an ID in inspector
-    //3. Make sure coneState is updated to include a bool for it
-    //HOW IT WORKS
-    //Each child object and script connects to this VisionCone script
-    //When they touch Target, it calls the functions here
-    //function here updates the bool
-
+    /// <summary>The single collider every cone tests against.</summary>
     [SerializeField] BoxCollider2D Target;
-    ChildCone childcorn;
 
-    //CONE STATES: index of coneState array corresponds to a cone.
-    //Note for later: maybe update to a List to make it easier to create new cones?
-    [SerializeField]  public  bool[] coneState = { false, false, false, false, false, false, false, false, false, false };
-    //These values are used to display which element in coneState is true;
+    /// <summary>
+    /// One entry per cone; the index matches the coneID on each ChildCone.
+    ///   0-3  L1 front/left/back/right
+    ///   4-7  L2 front/left/back/right
+    ///   8    L3
+    ///   9    L4 (contact)
+    /// </summary>
+    [SerializeField] public bool[] coneState = { false, false, false, false, false, false, false, false, false, false };
+
+    /// <summary>Value reported when no cone is triggered.</summary>
+    public const int NoDetection = -1;
+
     int firstTrueIndex;
     int lastTrueIndex;
-    [SerializeField] int[] coneStateTrue = {0, 0};
-    
+    [SerializeField] int[] coneStateTrue = { 0, 0 };
 
-    //Use this to get which cone is returning true
-    //returns as an 2x1 array cuz theres potentially 2 cones that are
-    //detecting target
+    /// <summary>
+    /// Which cones are currently detecting, as {first, last}.
+    ///
+    /// Two cones can overlap the target at once, so both ends are reported:
+    /// the FIRST index is the better signal for the target entering the cone
+    /// array, the LAST for prioritising the innermost cone. AI.GetConeInt()
+    /// uses the last.
+    ///
+    /// Returns {NoDetection, NoDetection} when nothing is detected, because
+    /// Array.IndexOf yields -1. Callers must handle that.
+    /// </summary>
     public int[] GetCone()
-    {        
+    {
         firstTrueIndex = Array.IndexOf(coneState, true);
         lastTrueIndex = Array.LastIndexOf(coneState, true);
+
         coneStateTrue[0] = firstTrueIndex;
         coneStateTrue[1] = lastTrueIndex;
+
         return coneStateTrue;
     }
 
     public void SetConeStateT(int id)
     {
-        coneState[id] = true;    
+        if (id < 0 || id >= coneState.Length) return;
+        coneState[id] = true;
     }
 
     public void SetConeStateF(int id)
     {
+        if (id < 0 || id >= coneState.Length) return;
         coneState[id] = false;
     }
 
@@ -67,10 +88,6 @@ public class VisionCone : MonoBehaviour
     {
         return Target;
     }
-    //press button to turn on and off all renders
-    
-
-
 }
 
 //old cone size

@@ -1,33 +1,26 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-/*there was an issue where the bot can get stuck on walls  
- * - driiving forward but not spinning enough due to friction with wall
- * So i made the walls very slippery :) aand it works well 
- * In the future I need to do some kind of reverse turn State when hitting a wall;
- * Should be easy
- * 
- * 
- */
-public class WallCheck : MonoBehaviour //Check if L4 is touching a wall
+
+/// <summary>
+/// Placeholder for wall-escape behaviour.
+///
+/// The bot used to get stuck on walls - driving forward but not rotating enough,
+/// because of friction against the wall. The shipped fix was to make the walls
+/// very slippery (Assets/Prefabs/Slippery.physicsMaterial2D), which works well,
+/// so the logic that was going to live here was never written.
+///
+/// KEPT ON PURPOSE, EVEN THOUGH IT DOES NOTHING.
+/// This component sits on a child object of AI.prefab that also carries a
+/// collider. Deleting the script would leave a Missing Script on the prefab, and
+/// deleting the whole object would remove that collider and change the AI's
+/// physics. The empty Start() and Update() have been removed, though - an empty
+/// Update() still costs a per-frame call into managed code, whereas a
+/// MonoBehaviour with no Update at all costs nothing.
+///
+/// The behaviour this was meant to hold is still wanted: on wall contact,
+/// reverse and turn. That is best written as a proper AI state (see the
+/// how-to-add-a-state recipe in the documentation) rather than as a component
+/// here.
+/// </summary>
+public class WallCheck : MonoBehaviour
 {
-
-    AI ParentScript;
-    CircleCollider2D col;
-
-
-    // Start is called before the first frame update
-    void Start()
-    {
-        //ParentScript = this.transform.parent.GetComponent<AI>();
-        //col = this.GetComponent<CircleCollider2D>();
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-    }
-
-
-    
 }

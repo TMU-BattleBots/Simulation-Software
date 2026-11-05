@@ -1,34 +1,34 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
-using static UnityEngine.InputSystem.PlayerInput;
 
-
+/// <summary>
+/// A human-controlled bot. Turns input vectors into physics, and reacts to its
+/// own death and to the end of a round.
+/// </summary>
 public class Player : MonoBehaviour
 {
-    //[SerializeField] Transform spawnPoint;
-
     //Physics Stats
     [SerializeField] Rigidbody2D rb;
-    [SerializeField] float movementSpeed; 
+    [SerializeField] float movementSpeed;
     [SerializeField] float boostSpeed;
     [SerializeField] float currentSpeed;
     [SerializeField] float turnSpeed;
 
     //Controls
     [SerializeField] Vector2 inputVectors;
-    
 
     //Enemy Bot
     [SerializeField] GameObject enemy;
-
 
     //vars
     float accelInputs = 0;
     float steerInputs = 0;
     float rotationAngle = 0;
 
-    //for multiplayer
-    [SerializeField] int index = 0; //unique id for each bot, 0 = p1, 1 = p2, 2 = AI
+    // Unique id for each bot. See GameOrganizer.PlayerLoses.
+    //   0 = AI, 1 = Player 1, 2 = Player 2
+    // (An old comment here claimed 0 = p1, 1 = p2, 2 = AI. That was wrong and
+    //  contradicted AI.cs, GameOrganizer and the values set in the scenes.)
+    [SerializeField] int index = 0;
     private GameObject organizerObj;
     private GameOrganizer organizer;
 
@@ -38,36 +38,87 @@ public class Player : MonoBehaviour
 
     void Start()
     {
-        //this.transform.rotation = spawnPoint.rotation;
-
         currentSpeed = movementSpeed;
-        organizerObj = GameObject.FindWithTag("Organizer");
-        organizer = organizerObj.GetComponent<GameOrganizer>();
 
-        organizer.UpdateScores(); //idk how to make organizer call this when a scene restarts (not onEnable somehow) so this'll do.
+        organizerObj = GameObject.FindWithTag(GameTags.Organizer);
+        if (organizerObj != null) organizer = organizerObj.GetComponent<GameOrganizer>();
+
+        if (organizer != null)
+        {
+            // GameOrganizer cannot reliably re-bind its own UI after a scene
+            // reload, so the bots prompt it once they exist.
+            organizer.UpdateScores();
+            organizer.RoundEnded += HandleRoundEnded;
+        }
+        else
+        {
+            Debug.LogError($"[Player {index}] No GameObject tagged '{GameTags.Organizer}' in this scene.");
+        }
+
+        if (combatSystem != null) combatSystem.OnDeath += HandleDeath;
     }
 
-    // Update is called once per frame
+    void OnDestroy()
+    {
+        // Always unsubscribe. GameOrganizer outlives the scene, so a Player that
+        // stays subscribed would be invoked after it has been destroyed.
+        if (combatSystem != null) combatSystem.OnDeath -= HandleDeath;
+        if (organizer != null) organizer.RoundEnded -= HandleRoundEnded;
+    }
+
     void Update()
     {
         QuitGame();
-        if (combatSystem.DeathCheck() == true) //constantly check if this object is dead.
-        {
-            Instantiate(explosion, this.transform);
-            enabled = false;
-            organizer.PlayerLoses(index);
-        }
     }
 
     void FixedUpdate()
     {
         AccelSystem();
         SteerSystem();
-        if (organizer.StopSignal() == true)
+    }
+
+    /// <summary>
+    /// Raised by our own CombatSystem the frame our health hits zero. This used
+    /// to be a DeathCheck() poll in Update().
+    /// </summary>
+    void HandleDeath(CombatSystem _)
+    {
+        if (explosion != null) Instantiate(explosion, this.transform);
+
+        Freeze();
+
+        if (organizer != null) organizer.PlayerLoses(index);
+    }
+
+    /// <summary>
+    /// Raised by GameOrganizer once any bot has died, so the survivors stop
+    /// moving and stop scoring during the pause before the scene reloads. This
+    /// replaces the old StopSignal() poll.
+    /// </summary>
+    void HandleRoundEnded()
+    {
+        Freeze();
+    }
+
+    /// <summary>
+    /// Stops this bot dead: no movement, no damage. Disabling the hitbox matters
+    /// - it lives on a child object, so switching this script off does not stop
+    /// it on its own.
+    /// </summary>
+    void Freeze()
+    {
+        if (rb != null)
         {
-            enabled = false;
+            rb.velocity = Vector2.zero;
+            rb.angularVelocity = 0f;
         }
 
+        foreach (BotHitBox hitBox in GetComponentsInChildren<BotHitBox>())
+        {
+            hitBox.SetHitboxActive(false);
+        }
+
+        enabled = false;
     }
 
     public int GetPlayerIndex()
@@ -75,52 +126,40 @@ public class Player : MonoBehaviour
         return index;
     }
 
-
-    public void SetInputs(Vector2 inputVector) //called by the InputSystem
+    /// <summary>Called by PlayerInputHandler when the Move action fires.</summary>
+    public void SetInputs(Vector2 inputVector)
     {
-        inputVectors = inputVector; //passing it into a seperate vector so i can see in on inspection idk
+        inputVectors = inputVector;
         steerInputs = inputVectors.x;
         accelInputs = inputVectors.y;
     }
 
     void AccelSystem()
     {
-        //transform.up = fwd //accel and steer inputs is 0/1 boolean dictating when a force is applied
+        // transform.up is forward. accel/steer inputs are 0/1, gating the force.
         Vector2 engineForceVector = transform.up * accelInputs * currentSpeed;
         rb.AddForce(engineForceVector, ForceMode2D.Impulse);
     }
+
     void SteerSystem()
     {
         rotationAngle -= steerInputs * turnSpeed;
         rb.MoveRotation(rotationAngle);
     }
-    public void Boost2(float boost) //its a vector 2 yeah cuz unity is weird
-    {
 
-        if (boost == 1)
-        {
-            //Debug.Log("pluh!2");
-            currentSpeed = boostSpeed;
-            combatSystem.SetBoost(true); //unused
-        }
-        else
-        {
-            currentSpeed = movementSpeed;
-            combatSystem.SetBoost(false); //unused
-        }
+    /// <summary>Called by PlayerInputHandler when the Boost action fires.</summary>
+    public void Boost2(float boost)
+    {
+        currentSpeed = (boost == 1) ? boostSpeed : movementSpeed;
     }
 
-
-    void QuitGame() //freak button for the demo and stuff. 
+    /// <summary>Demo convenience key.</summary>
+    void QuitGame()
     {
         if (Input.GetKeyDown(KeyCode.P))
         {
-            Application.Quit();
             Debug.Log("Quitting game... ");
+            Application.Quit();
         }
     }
-
-
-
-
 }

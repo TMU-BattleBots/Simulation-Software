@@ -189,6 +189,7 @@ MonoBehaviour:
   textCone: {fileID: 582175953}
   textState: {fileID: 272124037}
   textStateDesc: {fileID: 272593890}
+  textDifficulty: {fileID: 0}
   AI: {fileID: 708541283}
   ConeNameID:
   - FrontL1
@@ -212,6 +213,10 @@ MonoBehaviour:
   - Full target tracking
   - Full target tracking with aggressive movement
   - No movement. Press Q to return!
+  noDetectionText: No bot detected
+  showPerceivedCone: 1
+  flagPerceptionLag: 1
+  lagSuffix: '  (lag)'
 --- !u!114 &92755537
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2262,6 +2267,7 @@ GameObject:
   - component: {fileID: 1718039275}
   - component: {fileID: 1718039277}
   - component: {fileID: 1718039276}
+  - component: {fileID: 1718039278}
   m_Layer: 5
   m_Name: Notes
   m_TagString: Untagged
@@ -2398,6 +2404,24 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1718039274}
   m_CullTransparentMesh: 1
+--- !u!114 &1718039278
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1718039274}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8bfdec9e0277074682e3e6242375016, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  target: {fileID: 0}
+  showHeading: 1
+  heading: MOVEMENT CONTROLS
+  refreshInterval: 2
+  showPlayerControls: 1
+  showSystemKeys: 0
 --- !u!1 &1798410052
 GameObject:
   m_ObjectHideFlags: 0

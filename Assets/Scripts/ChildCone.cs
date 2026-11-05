@@ -1,76 +1,81 @@
-using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics.Contracts;
-using UnityEditor;
 using UnityEngine;
 
+// NOTE: this file used to have "using UnityEditor;" - see the note in
+// VisionCone.cs. It breaks standalone player builds.
+
+/// <summary>
+/// One vision cone. Polls its own collider against the shared target and reports
+/// the result up to the VisionCone on the parent.
+///
+/// Ten of these run every frame, so keep the per-frame work light. GetComponent
+/// calls belong in Start.
+/// </summary>
 public class ChildCone : MonoBehaviour
 {
-
-    //This integer corresponds to the Cone name in the array.
+    /// <summary>Index into VisionCone.coneState. Must be unique and contiguous.</summary>
     [SerializeField] int coneID;
+
+    /// <summary>Keep this cone visible even when it is not detecting (V key toggles it).</summary>
+    [SerializeField] bool toggleOn;
+
     VisionCone ParentScript;
     SpriteRenderer rend;
     PolygonCollider2D col;
-    bool b;
-    [SerializeField] bool toggleOn;
+
     Color detectColor;
     Color normColor;
 
-
-    //try to keep code here light since atleast 9 objects uses it. Put GetComponent in Start since it can be taxing.
     void Start()
     {
-        //Getting VisionCone through transform.parent 
         ParentScript = this.transform.parent.GetComponent<VisionCone>();
         rend = this.GetComponent<SpriteRenderer>();
-        //I prefer to use SerializeField (heard its faster too) but for automation i did one here
         col = this.GetComponent<PolygonCollider2D>();
-        detectColor = new Color(1f, 0, 0.4f, 0.4f);
+
+        detectColor = new Color(1f, 0f, 0.4f, 0.4f);
         normColor = new Color(0.3f, 1f, 1f, 0.3f);
 
+        if (ParentScript == null)
+        {
+            Debug.LogError($"[ChildCone {coneID}] No VisionCone on the parent object.", this);
+            enabled = false;
+        }
     }
+
     void Update()
     {
+        ReadToggleKey();
         ChildConeCheck();
-        ToggleRender();
     }
 
     void ChildConeCheck()
     {
-        if (col.IsTouching(ParentScript.GetTarget()))
+        if (col == null || rend == null) return;
+
+        BoxCollider2D target = ParentScript.GetTarget();
+        bool detecting = target != null && col.IsTouching(target);
+
+        if (detecting)
         {
             ParentScript.SetConeStateT(coneID);
-            SetRender(true);
-            rend.color = detectColor;
-
         }
         else
         {
             ParentScript.SetConeStateF(coneID);
-            if (toggleOn == false)
-            {
-                SetRender(false);
-            }
-            rend.color = normColor;
-
-
         }
+
+        // Visibility and tint derive from one source of truth now. Previously
+        // this method and the V-key handler both wrote rend.enabled from
+        // separate bools that started out of sync, so the first press of V could
+        // appear to do nothing.
+        rend.color = detecting ? detectColor : normColor;
+        rend.enabled = detecting || toggleOn;
     }
 
-    void SetRender(bool render)
-    {
-        this.rend.enabled = render;
-    }
-
-
-    void ToggleRender()
+    void ReadToggleKey()
     {
         if (Input.GetKeyDown(KeyCode.V))
         {
-            b = !b;
             toggleOn = !toggleOn;
-            this.rend.enabled = b;
         }
     }
 }

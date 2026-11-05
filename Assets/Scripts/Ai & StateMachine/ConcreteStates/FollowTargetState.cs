@@ -25,8 +25,10 @@ public class FollowTargetState : State //L2
     public override void Update()
     {
         base.Update();
-        //Base behavior of this state: Lock on to target
-        ai.TrackingTarget();
+
+        // Tracking moved to PhysicsUpdate - rotation now goes through the
+        // Rigidbody2D, so it belongs on the physics tick. Update() is for
+        // reading state and deciding transitions.
 
         if (ai.IsL3() == true)
         {
@@ -48,6 +50,9 @@ public class FollowTargetState : State //L2
     public override void PhysicsUpdate()
     {
         base.PhysicsUpdate();
+
+        //Base behavior of this state: lock on to target, at reduced speed
+        ai.TrackingTarget();
         ai.MoveSlowly();
     }
 }
