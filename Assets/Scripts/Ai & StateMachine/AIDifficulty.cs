@@ -44,6 +44,10 @@ public struct AIDifficultyProfile
              "AI commits harder to stale information, which makes it easier to bait.")]
     public float markerLifetimeMultiplier;
 
+    [Tooltip("Scales how far the AI leads a moving target. 0 aims where you are " +
+             "now and is easy to outrun; 1 is a full intercept.")]
+    public float predictionMultiplier;
+
     public static AIDifficultyProfile For(AIDifficulty difficulty)
     {
         switch (difficulty)
@@ -56,6 +60,7 @@ public struct AIDifficultyProfile
                     reactionDelay = 0.45f,            // clearly laggy vision
                     healthMultiplier = 0.8f,
                     markerLifetimeMultiplier = 1.6f,  // chases stale pings, easy to bait
+                    predictionMultiplier = 0f,
                 };
 
             case AIDifficulty.Hard:
@@ -66,6 +71,7 @@ public struct AIDifficultyProfile
                     reactionDelay = 0f,               // perfect vision
                     healthMultiplier = 1.2f,
                     markerLifetimeMultiplier = 0.6f,  // drops stale info quickly
+                    predictionMultiplier = 1f,
                 };
 
             case AIDifficulty.Medium:
@@ -77,6 +83,7 @@ public struct AIDifficultyProfile
                     reactionDelay = 0.15f,            // a touch of human-ish lag
                     healthMultiplier = 1f,
                     markerLifetimeMultiplier = 1f,
+                    predictionMultiplier = 0.5f,
                 };
         }
     }
