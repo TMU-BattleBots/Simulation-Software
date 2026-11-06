@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Text;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 /// <summary>
 /// On-screen movement legend, meant to sit bottom-left as a mirror of the debug
@@ -109,7 +110,7 @@ public class ControlsHUD : MonoBehaviour
                 any = true;
 
                 builder.AppendLine(BotName(handler.BotIndex));
-                builder.AppendLine("Drive: " + DriveLabel(handler));
+                AppendDriveLines(builder, handler);
                 builder.AppendLine("Boost: " + BoostLabel(handler));
             }
 
@@ -152,17 +153,60 @@ public class ControlsHUD : MonoBehaviour
     /// </summary>
     void AppendSystemKeys()
     {
-        bool aiPresent = FindObjectOfType<AI>() != null;
+        builder.Append(SystemKeysText(FindObjectOfType<AI>() != null));
+    }
 
-        if (aiPresent)
+    /// <summary>
+    /// The game hotkeys as display text, adapted to what is actually available:
+    /// the AI debug keys only when there is an AI, and the gamepad equivalents
+    /// only when a pad is connected.
+    ///
+    /// Static so the exit hint in the arena corner can render the same text
+    /// without duplicating the key names - if a binding changes, both follow.
+    /// </summary>
+    public static string SystemKeysText(bool includeAIKeys)
+    {
+        var sb = new StringBuilder();
+        bool pad = Gamepad.current != null;
+
+        if (includeAIKeys)
         {
-            builder.AppendLine("Manual switch to Idle: C");
-            builder.AppendLine("Toggle Cone View: V");
+            sb.AppendLine("Manual switch to Idle: C");
+            sb.AppendLine("Toggle Cone View: V");
         }
 
-        builder.AppendLine("Restart: L");
-        builder.AppendLine("Back to Menu: O");
-        builder.AppendLine("Quit Game: P");
+        sb.AppendLine(pad ? "Restart: L / Select" : "Restart: L");
+
+        /*  The pad buttons go on their own continuation line rather than onto
+         *  the end of the keyboard one.
+         *
+         *  Width is the reason. These blocks have word wrap switched off, and
+         *  the left column in PVP has room for about 23 characters before it
+         *  runs into the arena. "Back to Menu: O / Circle / Start" is 32 and
+         *  would have overlapped on a PlayStation pad - the same failure as
+         *  the old drive label. Split across two short lines, nothing has to
+         *  be dropped to make it fit.                                        */
+        string padBack = null;
+
+        if (pad)
+        {
+            GamepadFamily family = ControllerType.Detect(Gamepad.current);
+            padBack = $"  or {ControllerType.EastButtonLabel(family)} / Start";
+        }
+
+        // In a browser build Esc cannot quit - a page cannot close its own tab -
+        // so GameOrganizer sends it to the menu instead. Advertising "Quit" there
+        // would be telling the player something untrue.
+#if UNITY_WEBGL && !UNITY_EDITOR
+        sb.AppendLine("Back to Menu: O / Esc");
+        if (padBack != null) sb.AppendLine(padBack);
+#else
+        sb.AppendLine("Back to Menu: O");
+        if (padBack != null) sb.AppendLine(padBack);
+        sb.AppendLine("Quit Game: Esc");
+#endif
+
+        return sb.ToString();
     }
 
     static string BotName(int botIndex) => botIndex switch
@@ -173,36 +217,59 @@ public class ControlsHUD : MonoBehaviour
     };
 
     /// <summary>
-    /// What to show for steering and throttle. Falls back to the gamepad labels
-    /// whenever a pad is detected, so Auto-profile players read correctly too.
+    /// What to show for steering and throttle.
+    ///
+    /// Written as SHORT lines, one per line, rather than one descriptive
+    /// sentence. Both controls blocks have word wrap switched off - the left
+    /// one in PVP and the right-hand column in the arena - so a long line does
+    /// not wrap, it runs off sideways across the arena. That is what was
+    /// overlapping: "Drive: Left or Right Stick (up/down moves, left/right
+    /// turns)" is about sixty characters and simply did not fit.
+    ///
+    /// The full explanation still exists, in the how-to-play panel, which has
+    /// a whole screen to put it on.
     /// </summary>
-    static string DriveLabel(PlayerInputHandler handler)
+    static void AppendDriveLines(StringBuilder sb, PlayerInputHandler handler)
+    {
+        foreach (string line in DriveLines(handler)) sb.AppendLine(line);
+    }
+
+    /// <summary>
+    /// Falls back to the gamepad lines whenever a pad is detected, so
+    /// Auto-profile players read correctly too.
+    /// </summary>
+    static string[] DriveLines(PlayerInputHandler handler)
     {
         switch (handler.Profile)
         {
             case PlayerInputHandler.InputProfile.KeyboardLeft:
-                return "W A S D";
+                return new[] { "Drive: W A S D" };
 
             case PlayerInputHandler.InputProfile.KeyboardRight:
-                return "Arrow Keys";
+                return new[] { "Drive: Arrow Keys" };
 
             case PlayerInputHandler.InputProfile.Gamepad:
-                return GamepadDriveLabel(handler.ControllerFamily);
+                return DriveScheme.GamepadDriveLines(DriveScheme.Current);
 
             default:
                 // Auto: infer from whether a pad is actually paired.
                 return handler.ControllerFamily == GamepadFamily.None
-                    ? "W A S D"
-                    : GamepadDriveLabel(handler.ControllerFamily);
+                    ? new[] { "Drive: W A S D" }
+                    : DriveScheme.GamepadDriveLines(DriveScheme.Current);
         }
     }
 
-    static string GamepadDriveLabel(GamepadFamily family)
+    /// <summary>
+    /// One player's controls as display lines. Shared so the arena corner panel
+    /// and the bottom HUD cannot describe the controls differently.
+    /// </summary>
+    public static string PlayerControlsText(PlayerInputHandler handler)
     {
-        string accel = ControllerType.AccelerateLabel(family);
-        string reverse = ControllerType.ReverseLabel(family);
-
-        return $"Stick, {accel} / {reverse}";
+        var sb = new StringBuilder();
+        sb.AppendLine(BotName(handler.BotIndex));
+        AppendDriveLines(sb, handler);
+        sb.AppendLine("Boost: " + BoostLabel(handler));
+        return sb.ToString();
     }
 
     static string BoostLabel(PlayerInputHandler handler)

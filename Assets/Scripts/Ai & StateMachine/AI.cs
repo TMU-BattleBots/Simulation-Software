@@ -154,6 +154,22 @@ public class AI : MonoBehaviour
     [Tooltip("Draw the predicted aim point in the Scene view while playing.")]
     [SerializeField] bool drawPredictionGizmo = true;
 
+    /*  TUNNELLING GUARD  ---------------------------------------------------
+     *  The AI prefab shipped with Discrete collision detection while the Player
+     *  prefab had Continuous, so only the AI could pass through a wall - which
+     *  is exactly what was seen. Discrete only tests where a body starts and
+     *  ends each physics step; at knockback speeds that gap is wider than the
+     *  arena wall.
+     *
+     *  Forced to Continuous in code so it cannot be lost to a prefab setting,
+     *  and backed by a speed ceiling so no impulse produces a step big enough to
+     *  outrun the sweep.
+     * -------------------------------------------------------------------- */
+    [Header("Safety")]
+    [Tooltip("Hard ceiling on this bot's speed, in units per second. Stops a big " +
+             "knockback from launching it through a wall. 0 disables the clamp.")]
+    [SerializeField] float maxSpeed = 60f;
+
     struct TargetSample
     {
         public float time;
@@ -206,8 +222,13 @@ public class AI : MonoBehaviour
 
     private void Start()
     {
+        if (rb != null)
+        {
+            rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        }
+
         visionCone = this.GetComponent<VisionCone>();
-        StateMachine.Initialize(SearchTargetState);   // IMPORTANT
+        StateMachine.Initialize(SearchTargetState);   // IMPORTANT - sets the opening state
 
         // Seed the prediction state. Without this the delay buffer starts empty
         // and the AI would briefly aim at the world origin.
@@ -229,7 +250,7 @@ public class AI : MonoBehaviour
                 Debug.Log("[AI] Target has no Rigidbody2D; estimating its velocity " +
                           "from frame-to-frame movement instead.", this);
             }
-        } - sets the opening state
+        }
 
         organizerObj = GameObject.FindWithTag(GameTags.Organizer);
         if (organizerObj != null) organizer = organizerObj.GetComponent<GameOrganizer>();
@@ -276,6 +297,19 @@ public class AI : MonoBehaviour
         SampleTarget();
 
         StateMachine.CurrentEnemyState.PhysicsUpdate();   // IMPORTANT
+
+        ClampSpeed();
+    }
+
+    /// <summary>Keeps the bot below the speed at which it could skip a wall.</summary>
+    void ClampSpeed()
+    {
+        if (rb == null || maxSpeed <= 0f) return;
+
+        if (rb.velocity.sqrMagnitude > maxSpeed * maxSpeed)
+        {
+            rb.velocity = rb.velocity.normalized * maxSpeed;
+        }
     }
 
     /// <summary>

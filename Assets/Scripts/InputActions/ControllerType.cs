@@ -76,6 +76,26 @@ public static class ControllerType
         return GamepadFamily.Generic;
     }
 
+    /// <summary>
+    /// Label for the east face button - the "back out" control.
+    ///
+    /// Note that east is NOT the same letter on every pad: it is B on Xbox,
+    /// Circle on PlayStation, and A on a Switch Pro controller, whose A and B
+    /// are swapped relative to Xbox. Naming the physical position rather than
+    /// the letter is the whole reason this method exists.
+    /// </summary>
+    public static string EastButtonLabel(GamepadFamily family) => family switch
+    {
+        GamepadFamily.Xbox => "B",
+        GamepadFamily.PlayStation => "Circle",
+        GamepadFamily.Switch => "A",
+        // Just "East", not "East Button": the HUD line has room for about 23
+        // characters before it runs into the arena, and the longer form tipped
+        // it over.
+        GamepadFamily.Generic => "East",
+        _ => "O",                       // keyboard back key
+    };
+
     /// <summary>Label for the south face button - the Boost control.</summary>
     public static string SouthButtonLabel(GamepadFamily family) => family switch
     {
@@ -86,7 +106,18 @@ public static class ControllerType
         _ => "G",                       // keyboard boost key
     };
 
-    /// <summary>Label for the accelerate control.</summary>
+    /*  DRIVING LAYOUTS LIVE IN DriveScheme, NOT HERE
+     *
+     *  Which sticks drive the bot is now a player choice between two layouts,
+     *  so the labels for it belong with the thing that switches the bindings.
+     *  See DriveScheme for both layouts, why each is shaped the way it is, and
+     *  why the triggers drive in neither.
+     *
+     *  This class stays responsible for what it is actually good at: naming
+     *  buttons per controller brand. AccelerateLabel / ReverseLabel below are
+     *  kept for text that wants to name a trigger.                             */
+
+    /// <summary>Label for the accelerate control. Kept for callers that want the trigger name.</summary>
     public static string AccelerateLabel(GamepadFamily family) => family switch
     {
         GamepadFamily.Xbox => "RT",

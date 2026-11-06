@@ -36,8 +36,32 @@ public class Player : MonoBehaviour
     [SerializeField] CombatSystem combatSystem;
     [SerializeField] GameObject explosion;
 
+    /*  TUNNELLING GUARD  ---------------------------------------------------
+     *  A knockback impulse can be several times larger than anything normal
+     *  driving produces - force 1000 on a mass-15 body is about 133 units/s,
+     *  against a cruising speed nearer 35. At 133 u/s a bot covers 2.7 units in
+     *  a single 0.02s physics step, which is wider than the arena walls, so it
+     *  can pass clean through between two steps.
+     *
+     *  Two defences, because either alone is fragile:
+     *    1. Continuous collision detection, which sweeps the path between steps
+     *       instead of just testing the end points. Set in code so it holds even
+     *       if a prefab is saved with Discrete.
+     *    2. A hard speed ceiling, so no impulse can produce a step large enough
+     *       to outrun the sweep in the first place.
+     * -------------------------------------------------------------------- */
+    [Header("Safety")]
+    [Tooltip("Hard ceiling on this bot's speed, in units per second. Stops a big " +
+             "knockback from launching it through a wall. 0 disables the clamp.")]
+    [SerializeField] float maxSpeed = 60f;
+
     void Start()
     {
+        if (rb != null)
+        {
+            rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        }
+
         currentSpeed = movementSpeed;
 
         organizerObj = GameObject.FindWithTag(GameTags.Organizer);
@@ -66,15 +90,26 @@ public class Player : MonoBehaviour
         if (organizer != null) organizer.RoundEnded -= HandleRoundEnded;
     }
 
-    void Update()
-    {
-        QuitGame();
-    }
+    // Quit used to be polled here with the P key. It moved to GameOrganizer:
+    // this script exists once per bot, so in PVP two Players were both watching
+    // for the quit key. Nothing per-frame is needed on Player any more.
 
     void FixedUpdate()
     {
         AccelSystem();
         SteerSystem();
+        ClampSpeed();
+    }
+
+    /// <summary>Keeps the bot below the speed at which it could skip a wall.</summary>
+    void ClampSpeed()
+    {
+        if (rb == null || maxSpeed <= 0f) return;
+
+        if (rb.velocity.sqrMagnitude > maxSpeed * maxSpeed)
+        {
+            rb.velocity = rb.velocity.normalized * maxSpeed;
+        }
     }
 
     /// <summary>
@@ -153,13 +188,4 @@ public class Player : MonoBehaviour
         currentSpeed = (boost == 1) ? boostSpeed : movementSpeed;
     }
 
-    /// <summary>Demo convenience key.</summary>
-    void QuitGame()
-    {
-        if (Input.GetKeyDown(KeyCode.P))
-        {
-            Debug.Log("Quitting game... ");
-            Application.Quit();
-        }
-    }
 }

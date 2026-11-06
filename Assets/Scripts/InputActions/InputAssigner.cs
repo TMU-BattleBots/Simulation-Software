@@ -183,7 +183,12 @@ public class InputAssigner : MonoBehaviour
     /// </summary>
     void VerifyAssignments()
     {
-        var seen = new Dictionary<int, PlayerInputHandler>();
+        // Keyed on device AND profile. Sharing a device is only a problem when
+        // the two players also share a control scheme: the whole point of
+        // KeyboardLeft/KeyboardRight is that two players use ONE keyboard and are
+        // separated by binding group instead. Keying on the device alone reported
+        // that correct setup as a clash.
+        var seen = new Dictionary<(int deviceId, PlayerInputHandler.InputProfile profile), PlayerInputHandler>();
 
         foreach (PlayerInputHandler handler in handlers)
         {
@@ -192,17 +197,19 @@ public class InputAssigner : MonoBehaviour
 
             foreach (InputDevice device in handler.PairedDevices())
             {
-                if (seen.TryGetValue(device.deviceId, out PlayerInputHandler other))
+                var key = (device.deviceId, handler.Profile);
+
+                if (seen.TryGetValue(key, out PlayerInputHandler other))
                 {
                     Debug.LogError(
-                        $"[InputAssigner] Bots {other.BotIndex} and {handler.BotIndex} are BOTH paired to " +
-                        $"\"{device.displayName}\" - they will move together. " +
-                        $"Connect another device, or set one player's Input Profile to " +
-                        $"KeyboardLeft/KeyboardRight in the Inspector.", handler);
+                        $"[InputAssigner] Bots {other.BotIndex} and {handler.BotIndex} are both on " +
+                        $"\"{device.displayName}\" with the SAME profile ({handler.Profile}) - " +
+                        $"they will move together. Connect another device, or give one of them a " +
+                        $"different Input Profile in the Inspector.", handler);
                 }
                 else
                 {
-                    seen[device.deviceId] = handler;
+                    seen[key] = handler;
                 }
             }
         }

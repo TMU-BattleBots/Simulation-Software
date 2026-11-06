@@ -56,6 +56,18 @@ public class MainMenu : MonoBehaviour
     /// </summary>
     void StartMatch(bool pvp, string scene, AIDifficulty? difficulty = null)
     {
+        /*  Ask which stick layout the player wants before loading.
+         *
+         *  The prompt shows itself only when a gamepad is connected - the
+         *  choice is between two two-stick layouts, so there is nothing to ask
+         *  a keyboard player. With no pad it calls straight back and the match
+         *  starts as it always did, so this adds no step for them.             */
+        ControlSchemePrompt.Ask(_ => BeginMatch(pvp, scene, difficulty));
+    }
+
+    /// <summary>Sets up match state, THEN loads. See StartMatch for why.</summary>
+    void BeginMatch(bool pvp, string scene, AIDifficulty? difficulty)
+    {
         if (organizer != null)
         {
             organizer.SetLives();

@@ -1,6 +1,7 @@
 using System;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
 /// <summary>
@@ -101,6 +102,102 @@ public class GameOrganizer : MonoBehaviour
             SetLives();
             BackToMenuScene();
         }
+
+        // Esc quits. This used to be P, and it lived on Player.cs - which meant
+        // every bot in the scene polled for it independently, so in PVP two
+        // Players both raced to quit. It belongs here, on the one persistent
+        // object. P still works as the old alias.
+        // While the how-to-play overlay is up, Esc dismisses it. Without this
+        // check a single press would close the panel AND quit in the same frame.
+        // The control-scheme prompt is modal for the same reason: Esc there
+        // should back out of the prompt, not quit the game out from under it.
+        if (!HowToPlayPanel.IsOpen && !ControlSchemePrompt.IsOpen &&
+            (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.P)))
+        {
+            QuitGame();
+        }
+
+        ReadGamepadShortcuts();
+    }
+
+    /// <summary>
+    /// Gamepad equivalents of the restart and menu keys.
+    ///
+    /// Without these a pad player has no way out of a match - every exit was a
+    /// keyboard key, which is awkward on a couch and impossible on a build where
+    /// only a controller is to hand. Start leaves to the menu, Select restarts.
+    ///
+    /// There is deliberately no gamepad "quit": a pad has no natural key for it,
+    /// and in a browser build quitting is not possible at all.
+    /// </summary>
+    void ReadGamepadShortcuts()
+    {
+        Gamepad pad = Gamepad.current;
+        if (pad == null) return;
+
+        // A modal owns these buttons while it is up - east should dismiss the
+        // panel, not leave the match out from under it.
+        if (HowToPlayPanel.IsOpen || ControlSchemePrompt.IsOpen) return;
+
+        /*  Two ways back, because Start alone was not discoverable.
+         *  East (B on Xbox, Circle on PlayStation, A on a Switch Pro pad) is
+         *  the near-universal "back out of this" button, so it is worth having
+         *  even though Start already did the job. Start stays as it was.      */
+        bool back = pad.startButton.wasPressedThisFrame
+                    || pad.buttonEast.wasPressedThisFrame;
+
+        if (back)
+        {
+            // Pressing back at the menu would reload the menu - a visible
+            // flicker that does nothing. There is nowhere further back to go.
+            if (SceneManager.GetActiveScene().name == GameScenes.MainMenu) return;
+
+            SetLives();
+            BackToMenuScene();
+        }
+        else if (pad.selectButton.wasPressedThisFrame)
+        {
+            SetLives();
+            RestartScene();
+        }
+    }
+
+    /// <summary>
+    /// Leaves the game.
+    ///
+    /// Application.Quit() does nothing in the Editor and nothing in a WebGL
+    /// build, so the Editor branch stops play mode instead - otherwise Esc looks
+    /// broken while you are testing. The UNITY_EDITOR guard is what keeps the
+    /// UnityEditor reference out of player builds.
+    /// </summary>
+    public void QuitGame()
+    {
+#if UNITY_EDITOR
+        // Application.Quit() does nothing in the Editor, so stop play mode -
+        // otherwise Esc looks broken in the place you test it most.
+        // This branch is checked FIRST on purpose: with the build target set to
+        // WebGL, UNITY_WEBGL is also defined while in the Editor.
+        Debug.Log("[GameOrganizer] Quit pressed - stopping play mode.");
+        UnityEditor.EditorApplication.isPlaying = false;
+
+#elif UNITY_WEBGL
+        // A web page cannot close its own tab, so Application.Quit() is silently
+        // a no-op in a browser build - on itch.io the key would appear dead.
+        // Returning to the menu is the useful thing Esc can actually do there.
+        if (SceneManager.GetActiveScene().name == GameScenes.MainMenu)
+        {
+            Debug.Log("[GameOrganizer] Web build: already at the menu.");
+            return;
+        }
+
+        Debug.Log("[GameOrganizer] Web build: returning to the menu instead of quitting.");
+        SetLives();
+        BackToMenuScene();
+
+#else
+        Debug.Log("[GameOrganizer] Quitting game...");
+        Application.Quit();
+#endif
     }
 
     private void OnDestroy()

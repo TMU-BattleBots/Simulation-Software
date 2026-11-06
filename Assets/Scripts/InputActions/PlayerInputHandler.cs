@@ -168,11 +168,62 @@ public class PlayerInputHandler : MonoBehaviour
          * ---------------------------------------------------------------- */
         playerInput.neverAutoSwitchControlSchemes = true;
 
-        // Drop anything Unity paired automatically before we got here, so this
-        // player starts from a clean slate rather than accumulating devices.
-        if (playerInput.user.valid) playerInput.user.UnpairDevices();
+        string scheme = newProfile.ToString();
+        bool pinned = false;
 
-        playerInput.SwitchCurrentControlScheme(newProfile.ToString(), device);
+        /*  WHY THIS IS GUARDED  ---------------------------------------------
+         *  PlayerInput does not own an InputUser until it has successfully
+         *  paired at least one device, and SwitchCurrentControlScheme reads
+         *  user.index internally. Calling it before then throws
+         *  "InvalidOperationException: Invalid user" from deep inside the Input
+         *  System, which is what happened here - the pairing silently never
+         *  took effect and both bots stayed on the same device.
+         * ------------------------------------------------------------------ */
+        if (playerInput.user.valid)
+        {
+            try
+            {
+                playerInput.SwitchCurrentControlScheme(scheme, device);
+                pinned = true;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning(
+                    $"[PlayerInputHandler] Could not switch bot {BotIndex} to scheme " +
+                    $"'{scheme}' on '{device.displayName}': {e.Message}. " +
+                    $"Falling back to action-asset filtering.", this);
+            }
+        }
+
+        /*  FALLBACK THAT NEEDS NO InputUser  ---------------------------------
+         *  Restrict this player's own action asset to one device and one binding
+         *  group. PlayerInput clones the asset per player, so this isolates two
+         *  players just as effectively as device pairing does - and it works
+         *  even before an InputUser exists.
+         *
+         *  It is also what makes two players share ONE keyboard: the device is
+         *  the same for both, but the binding masks differ (KeyboardLeft vs
+         *  KeyboardRight), so they respond to different keys.
+         * ------------------------------------------------------------------ */
+        if (!pinned && playerInput.actions != null)
+        {
+            playerInput.actions.devices = new InputDevice[] { device };
+            playerInput.actions.bindingMask = InputBinding.MaskByGroup(scheme);
+            pinned = true;
+        }
+
+        if (!pinned)
+        {
+            Debug.LogWarning(
+                $"[PlayerInputHandler] Bot {BotIndex} could not be pinned to any device; " +
+                $"it may share input with another player.", this);
+            return;
+        }
+
+        /*  PlayerInput clones the action asset per player, so the clone this bot
+         *  just got still has every gamepad drive composite live - it would read
+         *  both stick layouts at once. Re-apply the chosen scheme to it.        */
+        if (playerInput.actions != null) DriveScheme.ApplyTo(playerInput.actions);
 
         Profile = newProfile;
         ControllerFamily = ControllerType.Detect(device);
@@ -182,7 +233,16 @@ public class PlayerInputHandler : MonoBehaviour
     public IEnumerable<InputDevice> PairedDevices()
     {
         if (playerInput == null) return System.Array.Empty<InputDevice>();
-        return playerInput.devices;
+
+        // playerInput.devices reads through the InputUser, which throws if there
+        // is no valid user - so check first, and fall back to whatever the
+        // action asset was restricted to.
+        if (playerInput.user.valid) return playerInput.devices;
+
+        var assetDevices = playerInput.actions?.devices;
+        if (assetDevices.HasValue) return assetDevices.Value.ToArray();
+
+        return System.Array.Empty<InputDevice>();
     }
 
     /// <summary>
@@ -194,13 +254,17 @@ public class PlayerInputHandler : MonoBehaviour
     {
         if (playerInput == null) return "no PlayerInput";
 
-        string scheme = string.IsNullOrEmpty(playerInput.currentControlScheme)
-            ? "(no scheme)"
-            : playerInput.currentControlScheme;
+        var paired = PairedDevices().ToArray();
 
-        string devices = playerInput.devices.Count == 0
+        string devices = paired.Length == 0
             ? "(no devices)"
-            : string.Join(" + ", playerInput.devices.Select(d => d.displayName));
+            : string.Join(" + ", paired.Select(d => d.displayName));
+
+        // currentControlScheme also goes through the InputUser, so only read it
+        // when there is one; otherwise report the profile we pinned ourselves.
+        string scheme = playerInput.user.valid && !string.IsNullOrEmpty(playerInput.currentControlScheme)
+            ? playerInput.currentControlScheme
+            : $"{Profile} (asset-level)";
 
         return $"{scheme} on {devices}";
     }
