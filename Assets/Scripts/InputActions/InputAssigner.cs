@@ -17,7 +17,7 @@ using UnityEngine.SceneManagement;
 ///   Players are served in bot-index order (Player 1, then Player 2):
 ///     1. Give each player its own gamepad, while unused gamepads remain.
 ///     2. When the gamepads run out, fall back to the two keyboard halves -
-///        WASD + G first, then arrows + Right Ctrl.
+///        WASD + G first, then arrows + Right Shift.
 ///   A device is never handed out twice.
 ///
 ///   So with two pads, both players use pads. With one pad, Player 1 gets the

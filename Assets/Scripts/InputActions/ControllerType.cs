@@ -61,14 +61,29 @@ public static class ControllerType
         if (device is DualShockGamepad) return GamepadFamily.PlayStation;
 
         // The Switch Pro layout is only present on some platforms, so match on
-        // the layout name rather than taking a hard type dependency.
+        // the layout name rather than taking a hard type dependency. Unity's
+        // layout is called "SwitchProControllerHID".
         string layout = device.layout ?? string.Empty;
-        if (layout.Contains("SwitchPro")) return GamepadFamily.Switch;
+        if (layout.Contains("SwitchPro") || layout.Contains("Nintendo")) return GamepadFamily.Switch;
 
-        // Some third-party pads report only as a generic HID Gamepad. Fall back
-        // to the product name, which is unreliable but better than nothing.
+        /*  Fall back to the product name. Unreliable, but it is all that is
+         *  left for a pad that reports only as a generic HID Gamepad - which
+         *  includes every pad in a WebGL build, where the concrete layouts
+         *  above do not exist at all.                                        */
         string product = (device.description.product ?? string.Empty).ToLowerInvariant();
+        string maker = (device.description.manufacturer ?? string.Empty).ToLowerInvariant();
+
         if (product.Contains("xbox") || product.Contains("xinput")) return GamepadFamily.Xbox;
+
+        /*  Nintendo is checked BEFORE PlayStation on purpose. A Switch Pro pad
+         *  reports as "Pro Controller", and DualShock 4's generic name is
+         *  "Wireless Controller" - put PlayStation first and a loose match on
+         *  "controller" would swallow the Switch case.                       */
+        if (maker.Contains("nintendo") ||
+            product.Contains("nintendo") || product.Contains("switch") ||
+            product.Contains("pro controller") || product.Contains("joy-con"))
+            return GamepadFamily.Switch;
+
         if (product.Contains("dualshock") || product.Contains("dualsense") ||
             product.Contains("wireless controller") || product.Contains("playstation"))
             return GamepadFamily.PlayStation;
@@ -96,7 +111,15 @@ public static class ControllerType
         _ => "O",                       // keyboard back key
     };
 
-    /// <summary>Label for the south face button - the Boost control.</summary>
+    /// <summary>
+    /// Label for the south face button - the Boost control.
+    ///
+    /// Note the Switch case. Nintendo's A and B are mirrored relative to an
+    /// Xbox pad: A sits on the RIGHT and B on the BOTTOM. Unity binds by
+    /// physical position, so &lt;Gamepad&gt;/buttonSouth is the bottom button,
+    /// which is B on a Switch Pro controller. Printing "A" here would send the
+    /// player to the wrong button even though the binding is correct.
+    /// </summary>
     public static string SouthButtonLabel(GamepadFamily family) => family switch
     {
         GamepadFamily.Xbox => "A",
@@ -104,6 +127,24 @@ public static class ControllerType
         GamepadFamily.Switch => "B",
         GamepadFamily.Generic => "South Button",
         _ => "G",                       // keyboard boost key
+    };
+
+    /// <summary>Label for the Select/Back button - the round restart.</summary>
+    public static string SelectButtonLabel(GamepadFamily family) => family switch
+    {
+        GamepadFamily.Xbox => "View",
+        GamepadFamily.PlayStation => "Share",
+        GamepadFamily.Switch => "Minus",
+        _ => "Select",
+    };
+
+    /// <summary>Label for the Start button - the other way back to the menu.</summary>
+    public static string StartButtonLabel(GamepadFamily family) => family switch
+    {
+        GamepadFamily.Xbox => "Menu",
+        GamepadFamily.PlayStation => "Options",
+        GamepadFamily.Switch => "Plus",
+        _ => "Start",
     };
 
     /*  DRIVING LAYOUTS LIVE IN DriveScheme, NOT HERE

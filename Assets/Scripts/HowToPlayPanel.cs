@@ -221,13 +221,22 @@ public class HowToPlayPanel : MonoBehaviour
                           $" - {DriveScheme.Description(DriveScheme.Current)}");
             sb.AppendLine($"   (pick this when you start a match)");
             sb.AppendLine($"   Boost: {ControllerType.SouthButtonLabel(family)}");
-            sb.AppendLine($"   Back to menu: {ControllerType.EastButtonLabel(family)} or Start" +
-                          $"      Restart: Select");
+            sb.AppendLine($"   Back to menu: {ControllerType.EastButtonLabel(family)}" +
+                          $" or {ControllerType.StartButtonLabel(family)}" +
+                          $"      Restart: {ControllerType.SelectButtonLabel(family)}");
+
+            if (family == GamepadFamily.Switch)
+            {
+                // Worth saying out loud, because it looks like a bug otherwise.
+                sb.AppendLine("   (Nintendo's A and B are mirrored vs Xbox - the labels above");
+                sb.AppendLine("    name the button you actually press.)");
+            }
+
             sb.AppendLine();
         }
 
         sb.AppendLine("Keyboard, player 1:   drive W A S D      boost G");
-        sb.AppendLine("Keyboard, player 2:   drive Arrow Keys   boost Right Ctrl");
+        sb.AppendLine("Keyboard, player 2:   drive Arrow Keys   boost Right Shift");
         sb.AppendLine();
         sb.AppendLine("Devices are handed out automatically - controllers first, then the two");
         sb.AppendLine("keyboard halves. Two players can share one keyboard.");

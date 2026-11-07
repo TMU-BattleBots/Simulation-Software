@@ -29,7 +29,7 @@ public class PlayerInputHandler : MonoBehaviour
         Auto = 0,
         /// <summary>Keyboard, left-hand keys: WASD to drive, G to boost.</summary>
         KeyboardLeft = 1,
-        /// <summary>Keyboard, right-hand keys: arrows to drive, Right Ctrl to boost.</summary>
+        /// <summary>Keyboard, right-hand keys: arrows to drive, Right Shift to boost.</summary>
         KeyboardRight = 2,
         /// <summary>Any gamepad - Xbox, PlayStation, Switch Pro or generic.</summary>
         Gamepad = 3,

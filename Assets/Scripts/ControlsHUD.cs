@@ -169,13 +169,20 @@ public class ControlsHUD : MonoBehaviour
         var sb = new StringBuilder();
         bool pad = Gamepad.current != null;
 
+        // Named per brand rather than hardcoded: Select and Start are Minus
+        // and Plus on a Switch Pro pad, View and Menu on an Xbox pad, and
+        // Share and Options on a DualShock.
+        GamepadFamily family = pad ? ControllerType.Detect(Gamepad.current) : GamepadFamily.None;
+
         if (includeAIKeys)
         {
             sb.AppendLine("Manual switch to Idle: C");
             sb.AppendLine("Toggle Cone View: V");
         }
 
-        sb.AppendLine(pad ? "Restart: L / Select" : "Restart: L");
+        sb.AppendLine(pad
+            ? $"Restart: L / {ControllerType.SelectButtonLabel(family)}"
+            : "Restart: L");
 
         /*  The pad buttons go on their own continuation line rather than onto
          *  the end of the keyboard one.
@@ -186,13 +193,9 @@ public class ControlsHUD : MonoBehaviour
          *  would have overlapped on a PlayStation pad - the same failure as
          *  the old drive label. Split across two short lines, nothing has to
          *  be dropped to make it fit.                                        */
-        string padBack = null;
-
-        if (pad)
-        {
-            GamepadFamily family = ControllerType.Detect(Gamepad.current);
-            padBack = $"  or {ControllerType.EastButtonLabel(family)} / Start";
-        }
+        string padBack = pad
+            ? $"  or {ControllerType.EastButtonLabel(family)} / {ControllerType.StartButtonLabel(family)}"
+            : null;
 
         // In a browser build Esc cannot quit - a page cannot close its own tab -
         // so GameOrganizer sends it to the menu instead. Advertising "Quit" there
@@ -280,7 +283,10 @@ public class ControlsHUD : MonoBehaviour
                 return "G";
 
             case PlayerInputHandler.InputProfile.KeyboardRight:
-                return "Right Ctrl";
+                // Not Right Ctrl: Mac laptop keyboards have no right Control
+                // key at all. Right Shift exists on every layout and sits next
+                // to the arrow keys this player is already using.
+                return "Right Shift";
 
             case PlayerInputHandler.InputProfile.Gamepad:
                 return ControllerType.SouthButtonLabel(handler.ControllerFamily);

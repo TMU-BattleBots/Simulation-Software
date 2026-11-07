@@ -345,7 +345,7 @@ public partial class @PlayerInputs: IInputActionCollection2, IDisposable
                 {
                     ""name"": ""up"",
                     ""id"": ""ec9dcfce-d5b4-410a-9134-a49db8761af1"",
-                    ""path"": ""<Keyboard>/rightCtrl"",
+                    ""path"": ""<Keyboard>/rightShift"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": ""KeyboardRight"",
